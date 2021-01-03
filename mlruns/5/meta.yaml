@@ -1,0 +1,4 @@
+artifact_location: file:///home/storm/Desktop/3semester/BigData/3assignment/mlruns/5
+experiment_id: '5'
+lifecycle_stage: active
+name: 'mids - Analytics: (Sampling, Model:hyperParam, Transformer, Split) '

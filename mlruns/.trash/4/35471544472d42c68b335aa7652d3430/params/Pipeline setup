@@ -1,0 +1,3 @@
+[('Drop ', ColumnTransformer(transformers=[('Speed', 'passthrough', ['Speed']),
+                                ('OneHotEncoder', OneHotEncoder(),
+                                 ['Direction'])])), ('Scaler', MaxAbsScaler()), ('LinearRegressionModel', LinearRegression())]

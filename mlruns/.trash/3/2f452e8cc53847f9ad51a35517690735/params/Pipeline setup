@@ -1,0 +1,3 @@
+[('Direction to Radians', Direction_To_Radians()), ('Drop ', ColumnTransformer(transformers=[('Speed', 'passthrough', ['Speed']),
+                                ('DirectionRad', 'passthrough',
+                                 ['DirectionRad'])])), ('Scaler', MinMaxScaler()), ('LinearRegressionModel', LinearRegression())]

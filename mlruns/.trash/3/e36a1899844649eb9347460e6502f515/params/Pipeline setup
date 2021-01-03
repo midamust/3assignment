@@ -1,0 +1,2 @@
+[('Direction to Radians', ToUV()), ('Drop ', ColumnTransformer(transformers=[('DirectionRad', 'passthrough', ['us']),
+                                ('DirectionRad1', 'passthrough', ['vs'])])), ('Scaler', MinMaxScaler()), ('LinearRegressionModel', LinearRegression())]

@@ -1,0 +1,4 @@
+artifact_location: file:///home/storm/Desktop/3semester/BigData/3assignment/mlruns/3
+experiment_id: '3'
+lifecycle_stage: active
+name: 'mids - Analytics: (Model, Eval_Metric, Preprocessing, Split) '

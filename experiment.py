@@ -1,3 +1,5 @@
+import numpy as np
+from numpy.lib.function_base import median, select
 import pandas as pd
 import mlflow
 
@@ -6,7 +8,7 @@ import mlflow
 # mlflow.set_tracking_uri("http://training.itu.dk:5000/")
 
 # TODO: Set the experiment name
-mlflow.set_experiment("<mids> - <MLFlow_experiemnts>")
+mlflow.set_experiment("mids - Analytics: (Sampling, Model:hyperParam, Transformer, Split) ")
 
 # Import some of the sklearn modules you are likely to use.
 from sklearn.pipeline import Pipeline
@@ -53,6 +55,17 @@ class Direction_To_Radians(BaseEstimator, TransformerMixin):
             met_dir_degrees.get(i))) for i in X["Direction"].values]
         return X
 
+class ToUV(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+    def transform(self, X):
+        text_to_num = { "N": 0, "NNE": 1, "NE": 2, "ENE": 3, "E": 4, "ESE": 5, "SE": 6, "SSE": 7, "S": 8, "SSW": 9, "SW": 10, "WSW": 11, "W": 12, "WNW": 13, "NW": 14, "NNW": 15 }
+        dirs = X["Direction"].replace(text_to_num)
+        radians =  np.radians((270 - dirs * 22.5) % 360)
+        us = X["Speed"] * np.cos(radians)
+        vs = X["Speed"] * np.sin(radians)
+        uvs = pd.concat([us, vs], axis=1, sort=False)
+        return uvs
 
 class Debug(BaseEstimator, TransformerMixin):
     def fit(self, X, y): return self
@@ -63,56 +76,61 @@ class Debug(BaseEstimator, TransformerMixin):
 
 # Start a run
 # TODO: Set a descriptive name. This is optional, but makes it easier to keep track of your runs.
-with mlflow.start_run(run_name="<TestRun>"):
+with mlflow.start_run(run_name="Linreg, Hyperparam, "):
     # TODO: Insert path to dataset
     df = pd.read_json("dataset.json", orient="split")
 
     # TODO: Handle missing data
     df = df.dropna()
 
-    X = df[["Direction", "Lead_hours", "Source_time", "Speed"]]
-    y = df[["Total"]]
-    
     pipeline = Pipeline([
         # TODO: You can start with your pipeline from assignment 1
         ("Direction to Radians", Direction_To_Radians()),
         ("Drop ", ColumnTransformer([
             ("Speed", "passthrough", ["Speed"]),
+            #("OneHotEncoder", OneHotEncoder(), ["Direction"]),
             ("DirectionRad", "passthrough", ["DirectionRad"]),
         ], remainder="drop")),
         #("Debug", Debug()),
-        ("Scaler", MinMaxScaler()),
+        ("Scaler", MaxAbsScaler()),
+        ("Poly", PolynomialFeatures(degree=degree)),
         ("LinearRegressionModel", LinearRegression())
     ])
 
-    # TODO: Currently the only metric is MAE. You should add more. What other metrics could you use? Why?
     metrics = [
-        ("MAE", mean_absolute_error, []),
-        ("MSE", mean_squared_error, []),
-        ("R2", r2_score, []),
+    ("MAE", mean_absolute_error, []),
+    ("MSE", mean_squared_error, []),
+    ("R2", r2_score, []),
     ]
 
     X = df[["Speed","Direction"]]
     y = df["Total"]
 
-    number_of_splits = 5
+splits = 5
+#TODO: Log your parameters. What parameters are important to log?
+#HINT: You can get access to the transformers in your pipeline using `pipeline.steps`
+mlflow.log_param("Model", pipeline.steps[-1])
+mlflow.log_param("Pipeline setup", pipeline.steps)
+mlflow.log_param("Splits", splits)
 
-    #TODO: Log your parameters. What parameters are important to log?
-    #HINT: You can get access to the transformers in your pipeline using `pipeline.steps`
+# TODO: Currently the only metric is MAE. You should add more. What other metrics could you use? Why?
+
+for train, test in TimeSeriesSplit(splits).split(X,y):
+    pipeline.fit(X.iloc[train],y.iloc[train])
+    predictions = pipeline.predict(X.iloc[test])
+    truth = y.iloc[test]
     
-    for train, test in TimeSeriesSplit(number_of_splits).split(X,y):
-        pipeline.fit(X.iloc[train],y.iloc[train])
-        predictions = pipeline.predict(X.iloc[test])
-        truth = y.iloc[test]
-        
-        # Calculate and save the metrics for this fold
-        for name, func, scores in metrics:
-            score = func(truth, predictions)
-            scores.append(score)
-    
-    # Log a summary of the metrics
-    for name, _, scores in metrics:
-            # NOTE: Here we just log the mean of the scores. 
-            # Are there other summarizations that could be interesting?
-            mean_score = sum(scores)/number_of_splits
-            mlflow.log_metric(f"mean_{name}", mean_score)
+    # Calculate and save the metrics for this fold
+    for name, func, scores in metrics:
+        score = func(truth, predictions)
+        scores.append(score)
+
+# Log a summary of the metrics
+for name, _, scores in metrics:
+        # NOTE: Here we just log the mean of the scores. 
+        # Are there other summarizations that could be interesting?
+        mean_score = sum(scores)/splits
+        mlflow.log_metric(f"mean_{name}", mean_score)
+        #median_score = scores.median
+        #mlflow.log_metric(f"median_{name}", median_score)
+

@@ -1,0 +1,15 @@
+artifact_uri: file:///home/storm/Desktop/3semester/BigData/3assignment/mlruns/5/bd7a5065c5094bc8987ec64e3c55ca50/artifacts
+end_time: 1606493667859
+entry_point_name: ''
+experiment_id: '5'
+lifecycle_stage: active
+name: ''
+run_id: bd7a5065c5094bc8987ec64e3c55ca50
+run_uuid: bd7a5065c5094bc8987ec64e3c55ca50
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1606493667765
+status: 3
+tags: []
+user_id: storm
