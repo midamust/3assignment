@@ -1,0 +1,15 @@
+artifact_uri: file:///home/storm/Desktop/3semester/BigData/3assignment/mlruns/0/dc7e14cf5fe049cab4e1fe978b4a6565/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+name: ''
+run_id: dc7e14cf5fe049cab4e1fe978b4a6565
+run_uuid: dc7e14cf5fe049cab4e1fe978b4a6565
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1609676840820
+status: 1
+tags: []
+user_id: mikke

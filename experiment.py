@@ -1,7 +1,8 @@
-import numpy as np
-from numpy.lib.function_base import median, select
-import pandas as pd
 import mlflow
+import numpy as np
+import pandas as pd
+from numpy.lib.function_base import median, select
+from matplotlib import pyplot as plt
 
 ## NOTE: Optionally, you can use the public tracking server.  Do not use it for data you cannot afford to lose. See note in assignment text. If you leave this line as a comment, mlflow will save the runs to your local filesystem.
 
@@ -10,18 +11,20 @@ import mlflow
 # TODO: Set the experiment name
 mlflow.set_experiment("mids - Analytics: (Sampling, Model:hyperParam, Transformer, Split) ")
 
-# Import some of the sklearn modules you are likely to use.
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.svm import SVR
-from sklearn.model_selection import TimeSeriesSplit
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import math
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import MaxAbsScaler, OneHotEncoder, StandardScaler, RobustScaler, MinMaxScaler
-import math
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.neighbors import KNeighborsRegressor
+# Import some of the sklearn modules you are likely to use.
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import (MaxAbsScaler, MinMaxScaler, OneHotEncoder,
+                                   PolynomialFeatures, RobustScaler,
+                                   StandardScaler)
+from sklearn.svm import SVR
+
 
 def met_degrees_to_math(met_dir):
     degrees_math = (270 - met_dir) % 360
@@ -74,17 +77,28 @@ class Debug(BaseEstimator, TransformerMixin):
         print(X)
         return X
 
+class Dropna(BaseEstimator, TransformerMixin):
+    def fit(self, X, y): return self
+
+    def transform(self, X):
+        X = X.dropna()
+        return X
+
 # Start a run
 # TODO: Set a descriptive name. This is optional, but makes it easier to keep track of your runs.
-with mlflow.start_run(run_name="Linreg, Hyperparam, "):
+with mlflow.start_run(run_name="Radians, Linreg"):
     # TODO: Insert path to dataset
     df = pd.read_json("dataset.json", orient="split")
 
     # TODO: Handle missing data
     df = df.dropna()
 
+    #Specify hyperparameter for polynomial degree
+    degree = 1
+
     pipeline = Pipeline([
         # TODO: You can start with your pipeline from assignment 1
+        ("DropNA", Dropna()),
         ("Direction to Radians", Direction_To_Radians()),
         ("Drop ", ColumnTransformer([
             ("Speed", "passthrough", ["Speed"]),
@@ -93,8 +107,10 @@ with mlflow.start_run(run_name="Linreg, Hyperparam, "):
         ], remainder="drop")),
         #("Debug", Debug()),
         ("Scaler", MaxAbsScaler()),
-        ("Poly", PolynomialFeatures(degree=degree)),
+        #("Poly", PolynomialFeatures(degree=degree)),
         ("LinearRegressionModel", LinearRegression())
+        #("SVRRegressionModel", SVR())
+        
     ])
 
     metrics = [
@@ -106,31 +122,48 @@ with mlflow.start_run(run_name="Linreg, Hyperparam, "):
     X = df[["Speed","Direction"]]
     y = df["Total"]
 
-splits = 5
-#TODO: Log your parameters. What parameters are important to log?
-#HINT: You can get access to the transformers in your pipeline using `pipeline.steps`
-mlflow.log_param("Model", pipeline.steps[-1])
-mlflow.log_param("Pipeline setup", pipeline.steps)
-mlflow.log_param("Splits", splits)
 
-# TODO: Currently the only metric is MAE. You should add more. What other metrics could you use? Why?
+    splits = 5
+    #TODO: Log your parameters. What parameters are important to log?
+    #HINT: You can get access to the transformers in your pipeline using `pipeline.steps`
+    mlflow.log_param("Model", pipeline.steps[-1])
+    mlflow.log_param("Pipeline setup", pipeline.steps)
+    mlflow.log_param("Splits", splits)
+    mlflow.log_param("polyDegree", degree)
 
-for train, test in TimeSeriesSplit(splits).split(X,y):
-    pipeline.fit(X.iloc[train],y.iloc[train])
-    predictions = pipeline.predict(X.iloc[test])
-    truth = y.iloc[test]
-    
-    # Calculate and save the metrics for this fold
-    for name, func, scores in metrics:
-        score = func(truth, predictions)
-        scores.append(score)
+    # TODO: Currently the only metric is MAE. You should add more. What other metrics could you use? Why?
 
-# Log a summary of the metrics
-for name, _, scores in metrics:
-        # NOTE: Here we just log the mean of the scores. 
-        # Are there other summarizations that could be interesting?
-        mean_score = sum(scores)/splits
-        mlflow.log_metric(f"mean_{name}", mean_score)
-        #median_score = scores.median
-        #mlflow.log_metric(f"median_{name}", median_score)
+    # current split
+    split = 0
+    for train, test in TimeSeriesSplit(splits).split(X,y):
+        pipeline.fit(X.iloc[train],y.iloc[train])
+        predictions = pipeline.predict(X.iloc[test])
+        truth = y.iloc[test]
+        
+        split = split + 1
+
+        plt.plot(X.iloc[test].Speed, truth, "--", label="Truth")
+        plt.plot(X.iloc[test].Speed, predictions, label="Predictions")
+        plt.xlabel("WindSpeed")
+        plt.ylabel("Power Generation in MegaWatts")
+        plt.legend()
+        plt.savefig(str(split) + "split.png")
+        mlflow.log_artifact(str(split) + "split.png")
+        plt.close()
+
+        # Calculate and save the metrics for this fold
+        for name, func, scores in metrics:
+            score = func(truth, predictions)
+            scores.append(score)
+
+    # Log a summary of the metrics
+    for name, _, scores in metrics:
+            # NOTE: Here we just log the mean of the scores. 
+            # Are there other summarizations that could be interesting?
+            mean_score = sum(scores)/splits
+            mlflow.log_metric(f"mean_{name}", mean_score)
+            n = len(scores)
+            scores.sort()
+            median_score = scores[n // 2]
+            mlflow.log_metric(f"median_{name}", median_score)
 

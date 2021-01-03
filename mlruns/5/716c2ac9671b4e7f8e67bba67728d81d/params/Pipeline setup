@@ -1,0 +1,3 @@
+[('DropNA', Dropna()), ('Direction to Radians', Direction_To_Radians()), ('Drop ', ColumnTransformer(transformers=[('Speed', 'passthrough', ['Speed']),
+                                ('DirectionRad', 'passthrough',
+                                 ['DirectionRad'])])), ('Scaler', MaxAbsScaler()), ('Poly', PolynomialFeatures(degree=4)), ('LinearRegressionModel', LinearRegression())]
